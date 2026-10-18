@@ -23,12 +23,12 @@ user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
-# Real Data Tracking starting from 0
+# Real Data Tracking (Starts from 0)
 total_predictions = 0
 total_wins = 0
 current_streak = 0
 max_streak = 0
-recent_history_records = []
+recent_history_records = []  # Persistent history list during runtime
 
 # --- Flask Server ---
 app = Flask(__name__)
@@ -36,7 +36,7 @@ app = Flask(__name__)
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WINGO CYBER WORLD-CLASS AI BOT IS LIVE", 200
+    return "WINGO CYBER PERMANENT HISTORY BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -45,17 +45,17 @@ def send_welcome(message):
     username = f"@{message.from_user.username}" if message.from_user.username else "N/A"
 
     welcome_text = (
-        f"🕊️ **CYBER WORLD-CLASS AI BOT** 🕊️\n\n"
+        f"🕊️ **CYBER AI BOT** 🕊️\n\n"
         f"Welcome, {first_name} 🔥!\n\n"
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n"
         f"👑 **YOUR STATUS:** Free User\n\n"
         f"✅ **Access Granted**\n\n"
-        f"🚀 **Real-Time 0-Start Engine Active!**"
+        f"🚀 **Real-Time History & Clean Chart Engine Active!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
-# --- High-Resolution Dynamic Dashboard Image Generator (Bigger Fonts) ---
+# --- Perfect Clean Dashboard Image Generator ---
 def generate_dashboard_image(period, signal_type, confidence, accuracy, wins, streak):
     width, height = 1000, 1100
     img = Image.new("RGB", (width, height), color=(255, 255, 255))
@@ -63,17 +63,17 @@ def generate_dashboard_image(period, signal_type, confidence, accuracy, wins, st
 
     try:
         font_large = ImageFont.truetype("arial.ttf", 55)
-        font_med = ImageFont.truetype("arial.ttf", 38)
-        font_small = ImageFont.truetype("arial.ttf", 30)
-        font_signal = ImageFont.truetype("arial.ttf", 85)
+        font_med = ImageFont.truetype("arial.ttf", 36)
+        font_small = ImageFont.truetype("arial.ttf", 26)
+        font_signal = ImageFont.truetype("arial.ttf", 80)
     except:
         font_large = font_med = font_small = font_signal = ImageFont.load_default()
 
-    # Header Box (Dark Top)
+    # Header Box
     draw.rectangle([(0, 0), (width, 160)], fill=(15, 15, 15))
     draw.text((40, 25), "WinGo 30 Sec", fill=(46, 204, 113), font=font_large)
     draw.text((40, 85), "WORLD-CLASS AI PREDICTION ENGINE", fill=(255, 255, 255), font=font_small)
-    draw.text((40, 120), "ENGINE : RIFU-AI-ULTRA-PRO-V5", fill=(180, 180, 180), font=font_small)
+    draw.text((40, 120), "ENGINE : RIFU-AI-ULTRA-PRO-V6", fill=(180, 180, 180), font=font_small)
 
     # Win & Streak Boxes Top
     draw.rectangle([(150, 130), (350, 185)], fill=(230, 255, 230), outline=(46, 204, 113), width=2)
@@ -90,15 +90,15 @@ def generate_dashboard_image(period, signal_type, confidence, accuracy, wins, st
     draw.text((510, 205), f"ACCURACY\n{accuracy}%", fill=(46, 204, 113), font=font_small)
     draw.text((760, 205), f"PREDICTIONS\n{total_predictions}", fill=(255, 255, 255), font=font_small)
 
-    # Main Signal Box (Bigger & Clearer Bold Letters)
+    # Main Signal Box
     draw.rectangle([(50, 280), (950, 430)], outline=(46, 204, 113), width=4)
     draw.text((350, 295), "CURRENT SIGNAL", fill=(46, 204, 113), font=font_med)
     
     signal_color = (46, 204, 113) if signal_type in ["GREEN", "BIG"] else (231, 76, 60)
-    draw.text((320, 345), f"{signal_type}", fill=signal_color, font=font_signal)
-    draw.text((340, 400), f"CONFIDENCE = {confidence}%", fill=(41, 128, 185), font=font_small)
+    draw.text((340, 345), f"{signal_type}", fill=signal_color, font=font_signal)
+    draw.text((350, 400), f"CONFIDENCE = {confidence}%", fill=(41, 128, 185), font=font_small)
 
-    # Table Header
+    # Table Header (Clean Layout)
     draw.rectangle([(0, 460), (width, 520)], fill=(20, 20, 20))
     draw.text((30, 475), "#", fill=(255, 255, 255), font=font_small)
     draw.text((150, 475), "PERIOD", fill=(255, 255, 255), font=font_small)
@@ -106,7 +106,7 @@ def generate_dashboard_image(period, signal_type, confidence, accuracy, wins, st
     draw.text((580, 475), "RESULT", fill=(255, 255, 255), font=font_small)
     draw.text((810, 475), "TIME", fill=(255, 255, 255), font=font_small)
 
-    # Populate History Table with Large Fonts
+    # Populate History Table (Keeps recent 10 records intact)
     y_offset = 540
     for idx, row in enumerate(recent_history_records[:10]):
         bg_color = (245, 255, 245) if idx % 2 == 0 else (255, 255, 255)
@@ -146,7 +146,7 @@ def generate_dashboard_image(period, signal_type, confidence, accuracy, wins, st
     img.save(filename)
     return filename
 
-# --- World-Class AI Prediction Engine ---
+# --- AI Engine ---
 def get_live_data():
     try:
         res = requests.get(API_URL, timeout=10)
@@ -158,7 +158,7 @@ def get_live_data():
         print(f"API Error: {e}")
     return None
 
-def world_class_ai_prediction(history_list):
+def ai_prediction_engine(history_list):
     if not history_list or len(history_list) < 5:
         return "BIG", 96, "BIG"
 
@@ -166,7 +166,6 @@ def world_class_ai_prediction(history_list):
     last_num = int(latest.get("number", 0))
     last_size = latest.get("size", "").upper() or ("BIG" if last_num >= 5 else "SMALL")
 
-    # Advanced AI Trend Momentum Analysis
     if last_size == "BIG":
         pred = "SMALL"
         signal_display = "SMALL"
@@ -206,7 +205,7 @@ def broadcast_signal(period, signal_display, confidence):
         except Exception as e:
             print(f"Broadcast Error: {e}")
 
-# --- Strict Result Checker ---
+# --- Persistent Result Checker ---
 def check_result(history_list):
     global active_prediction, total_wins, current_streak, max_streak, recent_history_records
     if not active_prediction or not history_list:
@@ -224,6 +223,7 @@ def check_result(history_list):
         res_str = "WIN" if is_win else "LOSE"
         time_str = datetime.now().strftime("%I:%M:%S %p")
 
+        # Safely insert into history without losing records
         recent_history_records.insert(0, {
             "period": latest_period[-8:],
             "signal": predicted_side,
@@ -258,10 +258,10 @@ def check_result(history_list):
 
         active_prediction = None
 
-# --- Main Bot Loop with Exception Protection ---
+# --- Main Bot Loop ---
 def bot_loop():
     global last_processed_period, active_prediction
-    print("🚀 World-Class AI Wingo 30s Engine Started...")
+    print("🚀 Wingo 30s Permanent History Engine Started...")
     time.sleep(3)
 
     while True:
@@ -276,7 +276,7 @@ def bot_loop():
 
                 if next_period_full != last_processed_period:
                     last_processed_period = next_period_full
-                    signal_display, conf, expected_side = world_class_ai_prediction(history)
+                    signal_display, conf, expected_side = ai_prediction_engine(history)
 
                     active_prediction = {
                         "period": next_period_full,
@@ -300,4 +300,4 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    
+        
