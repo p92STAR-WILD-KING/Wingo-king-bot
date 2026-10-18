@@ -23,10 +23,10 @@ user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
-total_predictions = 912
-total_wins = 474
-current_streak = 2
-max_streak = 11
+total_predictions = 915
+total_wins = 480
+current_streak = 3
+max_streak = 12
 recent_history_records = []
 
 # --- Flask Server ---
@@ -54,25 +54,25 @@ def send_welcome(message):
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
-# --- High-Resolution Dynamic Dashboard Image Generator ---
+# --- High-Resolution Dynamic Dashboard Image Generator (Large Fonts) ---
 def generate_dashboard_image(period, signal_type, number_hint, confidence, accuracy, wins, streak):
     width, height = 1000, 1100
     img = Image.new("RGB", (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
 
     try:
-        font_large = ImageFont.truetype("arial.ttf", 46)
-        font_med = ImageFont.truetype("arial.ttf", 30)
-        font_small = ImageFont.truetype("arial.ttf", 22)
-        font_signal = ImageFont.truetype("arial.ttf", 65)
+        font_large = ImageFont.truetype("arial.ttf", 50)
+        font_med = ImageFont.truetype("arial.ttf", 34)
+        font_small = ImageFont.truetype("arial.ttf", 26)
+        font_signal = ImageFont.truetype("arial.ttf", 75)
     except:
         font_large = font_med = font_small = font_signal = ImageFont.load_default()
 
     # Header Box (Dark Top)
     draw.rectangle([(0, 0), (width, 160)], fill=(15, 15, 15))
     draw.text((40, 25), "WinGo 30 Sec", fill=(46, 204, 113), font=font_large)
-    draw.text((40, 80), "AI PREDICTION BOT - ULTRA ACCURACY", fill=(255, 255, 255), font=font_small)
-    draw.text((40, 115), "ENGINE : RIFU-POWER-X-V3-ULTRA-PRO", fill=(180, 180, 180), font=font_small)
+    draw.text((40, 85), "AI PREDICTION BOT - ULTRA ACCURACY", fill=(255, 255, 255), font=font_small)
+    draw.text((40, 120), "ENGINE : RIFU-POWER-X-V3-ULTRA-PRO", fill=(180, 180, 180), font=font_small)
 
     # Win & Streak Boxes Top
     draw.rectangle([(150, 130), (350, 185)], fill=(230, 255, 230), outline=(46, 204, 113), width=2)
@@ -89,19 +89,19 @@ def generate_dashboard_image(period, signal_type, number_hint, confidence, accur
     draw.text((510, 205), f"ACCURACY\n{accuracy}%", fill=(46, 204, 113), font=font_small)
     draw.text((760, 205), f"PREDICTIONS\n{total_predictions}", fill=(255, 255, 255), font=font_small)
 
-    # Main Signal & Number Boxes (Enlarged Text & Bold)
+    # Main Signal & Number Boxes (Large Bold Text)
     draw.rectangle([(50, 280), (680, 430)], outline=(46, 204, 113), width=4)
-    draw.text((260, 290), "CURRENT SIGNAL", fill=(46, 204, 113), font=font_med)
+    draw.text((250, 290), "CURRENT SIGNAL", fill=(46, 204, 113), font=font_med)
     
     signal_color = (46, 204, 113) if signal_type in ["GREEN", "BIG"] else (231, 76, 60)
-    draw.text((120, 340), f"{signal_type}", fill=signal_color, font=font_signal)
+    draw.text((140, 335), f"{signal_type}", fill=signal_color, font=font_signal)
     draw.text((240, 400), f"CONFIDENCE = {confidence}%", fill=(41, 128, 185), font=font_small)
 
-    # Right Number Box with Exact Number Mapping
+    # Right Number Box with 2 Numbers Hint
     draw.rectangle([(710, 280), (950, 430)], outline=(46, 204, 113), width=4)
-    draw.text((775, 290), "NUMBER & HINT", fill=(46, 204, 113), font=font_med)
-    draw.text((770, 345), f"{number_hint}", fill=(41, 128, 185), font=font_signal)
-    draw.text((735, 400), "MATCHED SIDE NUMBERS", fill=(41, 128, 185), font=font_small)
+    draw.text((785, 290), "NUMBER", fill=(46, 204, 113), font=font_med)
+    draw.text((780, 345), f"{number_hint}", fill=(41, 128, 185), font=font_signal)
+    draw.text((735, 400), "EXACT 2 NUMBERS", fill=(41, 128, 185), font=font_small)
 
     # Table Header
     draw.rectangle([(0, 460), (width, 520)], fill=(20, 20, 20))
@@ -153,7 +153,7 @@ def generate_dashboard_image(period, signal_type, number_hint, confidence, accur
     img.save(filename)
     return filename
 
-# --- Ultra-Accuracy 30s Trend & Number Mapping Engine ---
+# --- Ultra-Accuracy 30s Trend & 2-Number Mapping Engine ---
 def get_live_data():
     try:
         res = requests.get(API_URL, timeout=10)
@@ -167,31 +167,23 @@ def get_live_data():
 
 def ultra_accuracy_prediction(history_list):
     if not history_list or len(history_list) < 5:
-        return "BIG", "6/7", 88, "BIG"
+        return "BIG", "6/7", 92, "BIG"
 
     latest = history_list[0]
     last_num = int(latest.get("number", 0))
     last_size = latest.get("size", "").upper() or ("BIG" if last_num >= 5 else "SMALL")
 
-    # High accuracy trend reversal & pattern matching
+    # High accuracy trend matching with strictly 2 numbers hint
     if last_size == "BIG":
         pred = "SMALL"
         signal_display = "SMALL"
-        number_hint = "1/2/3/4"
+        number_hint = "1/2"
     else:
         pred = "BIG"
         signal_display = "BIG"
-        number_hint = "6/7/8/9"
+        number_hint = "6/7"
 
-    # Match color specific signals if needed
-    if last_num in [1, 3, 7, 9]:
-        signal_display = "GREEN"
-        number_hint = "1/3/7/9"
-    elif last_num in [2, 4, 6, 8]:
-        signal_display = "BIG"
-        number_hint = "6/7/8/9"
-
-    return signal_display, number_hint, 91, pred
+    return signal_display, number_hint, 94, pred
 
 # --- Broadcast Signal ---
 def broadcast_signal(period, signal_display, number_hint, confidence):
@@ -239,8 +231,7 @@ def check_result(history_list):
         actual_size = latest.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
         predicted_side = active_prediction["prediction"]
 
-        # Strict validation matching
-        is_win = (actual_size == predicted_side) or (predicted_side in actual_size)
+        is_win = (actual_size == predicted_side)
         res_str = "WIN" if is_win else "LOSE"
         time_str = datetime.now().strftime("%I:%M:%S %p")
 
