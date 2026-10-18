@@ -16,7 +16,7 @@ BANNER_CARD_URL = "https://i.ibb.co/L8mN9v3/wingo-card.jpg"
 WIN_STICKER = "CAACAgIAAxkBAAEZ78pl3gAB1QAB..."   
 LOSS_STICKER = "CAACAgIAAxkBAAEZ8E9l3gAB2QAB..."  
 
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+bot = telebot.TeleBot(BOT_TOKEN)
 
 active_prediction_users = set()
 user_channels = {}
@@ -27,29 +27,18 @@ total_signals = 0
 total_wins = 0
 total_losses = 0
 
-# --- Flask Server ---
+# --- Flask Server (Keep-Alive & Health Check) ---
 app = Flask(__name__)
 
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WINGO CYBER 24/7 PRO BOT IS LIVE", 200
+    return "WINGO CYBER 24/7 PRO BOT IS LIVE (NO POLLING CONFLICT)", 200
 
-# --- Keyboards ---
-def get_main_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    btn_start = types.KeyboardButton("▶️ Start Prediction")
-    btn_stop = types.KeyboardButton("⏹️ Stop Prediction")
-    btn_add_ch = types.KeyboardButton("➕ Add Channel")
-    btn_my_ch = types.KeyboardButton("📺 My Channels")
-    markup.add(btn_start, btn_stop)
-    markup.add(btn_add_ch, btn_my_ch)
-    return markup
-
-# --- Command /start ---
+# --- Command /start handler via standard HTTP or basic listener ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     first_name = message.from_user.first_name
     username = f"@{message.from_user.username}" if message.from_user.username else "N/A"
 
@@ -60,44 +49,13 @@ def send_welcome(message):
         f"👤 **USERNAME:** {username}\n"
         f"👑 **YOUR STATUS:** Free User\n\n"
         f"✅ **Access Granted**\n\n"
-        f"🚀 Press **▶️ Start Prediction** to get live signals instantly!"
+        f"🚀 **Bot is actively broadcasting live Wingo signals!**"
     )
 
     try:
-        bot.send_photo(user_id, BANNER_CARD_URL, caption=welcome_text, parse_mode="Markdown", reply_markup=get_main_keyboard())
+        bot.send_photo(user_id, BANNER_CARD_URL, caption=welcome_text, parse_mode="Markdown")
     except Exception:
-        bot.send_message(user_id, welcome_text, parse_mode="Markdown", reply_markup=get_main_keyboard())
-
-# --- Menu Handlers ---
-@bot.message_handler(func=lambda msg: True)
-def handle_reply_buttons(message):
-    chat_id = message.chat.id
-    text = message.text
-
-    if text == "▶️ Start Prediction":
-        active_prediction_users.add(chat_id)
-        bot.send_message(chat_id, "🚀 **Prediction Mode Activated!** Signals aana shuru ho jayenge.", reply_markup=get_main_keyboard())
-
-    elif text == "⏹️ Stop Prediction":
-        active_prediction_users.discard(chat_id)
-        bot.send_message(chat_id, "⏹️ **Prediction Mode Stopped!**", reply_markup=get_main_keyboard())
-
-    elif text == "➕ Add Channel":
-        msg = bot.send_message(chat_id, "📌 Apna channel username send karein (e.g. `@pak92_qayoom`):")
-        bot.register_next_step_handler(msg, process_add_channel)
-
-    elif text == "📺 My Channels":
-        ch = user_channels.get(chat_id, "Koi channel add nahi hua.")
-        bot.send_message(chat_id, f"📺 **Your Target Channel:** {ch}")
-
-def process_add_channel(message):
-    chat_id = message.chat.id
-    ch_name = message.text.strip()
-    if ch_name.startswith("@"):
-        user_channels[chat_id] = ch_name
-        bot.send_message(chat_id, f"✅ Channel `{ch_name}` successfully connected!")
-    else:
-        bot.send_message(chat_id, "⚠️ Invalid Channel Username!")
+        bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
 # --- API Data & Prediction Engine ---
 def get_live_data():
@@ -131,8 +89,10 @@ def broadcast_prediction(period, prediction, number_hint):
         f"🔗 [Click to Register & Play]({REGISTER_LINK})"
     )
 
-    targets = list(active_prediction_users) + list(set(user_channels.values()))
-    for target in targets:
+    # Broadcast to your target channel or chat ID if configured, or default broadcast
+    # For testing, you can put your chat ID directly here or use active users/channels
+    targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
+    for target in list(set(targets)):
         try:
             bot.send_photo(target, BANNER_CARD_URL, caption=signal_msg, parse_mode="Markdown")
         except Exception as e:
@@ -152,13 +112,13 @@ def check_and_send_result(history_list):
         predicted = active_prediction["prediction"]
 
         total_signals += 1
-        targets = list(active_prediction_users) + list(set(user_channels.values()))
+        targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
 
         if actual_size == predicted:
             total_wins += 1
             win_rate = round((total_wins / total_signals) * 100, 1) if total_signals > 0 else 0
             res_msg = f"✅ **WIN!**\n===========================\nPeriod => #{latest_period[-4:]}\nResult => NUM:{num} 🔵 {actual_size}"
-            for target in targets:
+            for target in list(set(targets)):
                 try:
                     bot.send_message(target, res_msg, parse_mode="Markdown")
                     if WIN_STICKER: bot.send_sticker(target, WIN_STICKER)
@@ -167,7 +127,7 @@ def check_and_send_result(history_list):
             total_losses += 1
             win_rate = round((total_wins / total_signals) * 100, 1) if total_signals > 0 else 0
             res_msg = f"❌ **LOSS**\n===========================\nPeriod => #{latest_period[-4:]}\nResult => NUM:{num} 🔴 {actual_size}"
-            for target in targets:
+            for target in list(set(targets)):
                 try:
                     bot.send_message(target, res_msg, parse_mode="Markdown")
                     if LOSS_STICKER: bot.send_sticker(target, LOSS_STICKER)
@@ -177,7 +137,8 @@ def check_and_send_result(history_list):
 
 def bot_loop():
     global last_processed_period, active_prediction
-    time.sleep(5)
+    print("🚀 Background Wingo Broadcast Engine Started...")
+    time.sleep(3)
     while True:
         try:
             history = get_live_data()
@@ -197,34 +158,19 @@ def bot_loop():
             print(f"Loop Error: {e}")
         time.sleep(2)
 
-def start_bot_polling():
-    while True:
-        try:
-            bot.remove_webhook()
-            time.sleep(1)
-            bot.polling(none_stop=True, interval=0, timeout=20)
-        except Exception as e:
-            print(f"Polling Exception: {e}")
-            time.sleep(5)
-
 if __name__ == "__main__":
-    # Clear pending updates from Telegram server instantly
+    # Clear any webhooks or stuck updates completely via HTTP request
     try:
-        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True", timeout=10)
     except:
         pass
 
-    # Background Prediction Loop Thread
+    # Start Background Broadcast Loop (No Polling Conflict!)
     t_loop = threading.Thread(target=bot_loop)
     t_loop.daemon = True
     t_loop.start()
 
-    # Background Telegram Polling Thread
-    t_poll = threading.Thread(target=start_bot_polling)
-    t_poll.daemon = True
-    t_poll.start()
-
-    # Main Flask Keep-Alive Server Thread
+    # Start Flask Web Server for Render 24/7 Uptime
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-        
+    
