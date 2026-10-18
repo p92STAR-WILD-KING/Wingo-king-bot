@@ -7,7 +7,7 @@ from telebot import types
 from flask import Flask
 
 # ---------------- CONFIGURATION ----------------
-BOT_TOKEN = "8883836126:AAFFIuH5PI719_k_VkYbYy_mHaJWP2O12VA"
+BOT_TOKEN = "8884038113:AAEX8v7pFHqfS7n3M6ztXmu7iTgOWu2B8Ko"
 REGISTER_LINK = "https://92blaze99.com/register?inviteCode=HD6Y3BN&from=web"
 API_URL = "https://sky-predictor-1012593186417.asia-southeast1.run.app/api/wingo-history-30s-100"
 
@@ -16,7 +16,7 @@ BANNER_CARD_URL = "https://i.ibb.co/L8mN9v3/wingo-card.jpg"
 WIN_STICKER = "CAACAgIAAxkBAAEZ78pl3gAB1QAB..."   
 LOSS_STICKER = "CAACAgIAAxkBAAEZ8E9l3gAB2QAB..."  
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 active_prediction_users = set()
 user_channels = {}
@@ -34,10 +34,6 @@ app = Flask(__name__)
 @app.route("/health")
 def home():
     return "WINGO CYBER 24/7 PRO BOT IS LIVE", 200
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 # --- Keyboards ---
 def get_main_keyboard():
@@ -181,7 +177,7 @@ def check_and_send_result(history_list):
 
 def bot_loop():
     global last_processed_period, active_prediction
-
+    time.sleep(5)
     while True:
         try:
             history = get_live_data()
@@ -201,18 +197,34 @@ def bot_loop():
             print(f"Loop Error: {e}")
         time.sleep(2)
 
-if __name__ == "__main__":
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
-
-    t_bot = threading.Thread(target=bot_loop)
-    t_bot.daemon = True
-    t_bot.start()
-
+def start_bot_polling():
     while True:
         try:
-            bot.polling(none_stop=True, interval=1, timeout=30)
+            bot.remove_webhook()
+            time.sleep(1)
+            bot.polling(none_stop=True, interval=0, timeout=20)
         except Exception as e:
-            print(f"Polling Error: {e}")
+            print(f"Polling Exception: {e}")
             time.sleep(5)
+
+if __name__ == "__main__":
+    # Clear pending updates from Telegram server instantly
+    try:
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
+    except:
+        pass
+
+    # Background Prediction Loop Thread
+    t_loop = threading.Thread(target=bot_loop)
+    t_loop.daemon = True
+    t_loop.start()
+
+    # Background Telegram Polling Thread
+    t_poll = threading.Thread(target=start_bot_polling)
+    t_poll.daemon = True
+    t_poll.start()
+
+    # Main Flask Keep-Alive Server Thread
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+        
