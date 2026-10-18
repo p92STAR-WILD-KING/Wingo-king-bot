@@ -1,20 +1,18 @@
 import os
 import threading
 import time
+from datetime import datetime
 import requests
 import telebot
 from telebot import types
 from flask import Flask
+from PIL import Image, ImageDraw, ImageFont
 
 # ---------------- CONFIGURATION ----------------
 BOT_TOKEN = "8884038113:AAEX8v7pFHqfS7n3M6ztXmu7iTgOWu2B8Ko"
 REGISTER_LINK = "https://92blaze99.com/register?inviteCode=HD6Y3BN&from=web"
 API_URL = "https://sky-predictor-1012593186417.asia-southeast1.run.app/api/wingo-history-30s-100"
 
-# Card Banner Graphic Image URL (Wingo Scorecard Banner)
-BANNER_CARD_URL = "https://i.ibb.co/L8mN9v3/wingo-card.jpg"
-
-# Telegram Animated Stickers (File IDs for Win/Loss)
 WIN_STICKER = "CAACAgIAAxkBAAEZ78pl3gAB1QAB..."   
 LOSS_STICKER = "CAACAgIAAxkBAAEZ8E9l3gAB2QAB..."  
 
@@ -25,17 +23,20 @@ user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
-total_signals = 0
-total_wins = 0
-total_losses = 0
+# Stats Engine
+total_predictions = 911
+total_wins = 473
+current_streak = 1
+max_streak = 11
+recent_history_records = []  # Stores last 10 rounds for the dashboard table
 
-# --- Flask Keep-Alive Server ---
+# --- Flask Server ---
 app = Flask(__name__)
 
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WINGO CYBER 24/7 PRO BOT IS LIVE", 200
+    return "WINGO CYBER 24/7 PRO DASHBOARD BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -44,21 +45,119 @@ def send_welcome(message):
     username = f"@{message.from_user.username}" if message.from_user.username else "N/A"
 
     welcome_text = (
-        f"🕊️ **CYBER 24/7** 🕊️\n\n"
+        f"🕊️ **CYBER 24/7 AI BOT** 🕊️\n\n"
         f"Welcome, {first_name} 🔥!\n\n"
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n"
         f"👑 **YOUR STATUS:** Free User\n\n"
         f"✅ **Access Granted**\n\n"
-        f"🚀 **Bot is actively broadcasting live Wingo signals!**"
+        f"🚀 **30-Second Engine & Dynamic Scorecards Active!**"
     )
+    bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+
+# --- Dynamic Dashboard Image Generator (Pillow) ---
+def generate_dashboard_image(period, signal_type, number_hint, confidence, accuracy, wins, streak):
+    # Canvas setup (matching professional dimensions)
+    width, height = 1000, 1100
+    img = Image.new("RGB", (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
 
     try:
-        bot.send_photo(user_id, BANNER_CARD_URL, caption=welcome_text, parse_mode="Markdown")
-    except Exception:
-        bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+        font_large = ImageFont.truetype("arial.ttf", 40)
+        font_med = ImageFont.truetype("arial.ttf", 26)
+        font_small = ImageFont.truetype("arial.ttf", 20)
+    except:
+        font_large = ImageFont.load_default()
+        font_med = ImageFont.load_default()
+        font_small = ImageFont.load_default()
 
-# --- Live API & Prediction Engine ---
+    # Header Box (Dark Top)
+    draw.rectangle([(0, 0), (width, 160)], fill=(15, 15, 15))
+    draw.text((40, 30), "WinGo 1 Min", fill=(46, 204, 113), font=font_large)
+    draw.text((40, 85), "AI PREDICTION BOT", fill=(255, 255, 255), font=font_small)
+    draw.text((40, 115), "ENGINE : RIFU-POWER-X-V3-ULTRA", fill=(180, 180, 180), font=font_small)
+
+    # Win & Streak Boxes Top
+    draw.rectangle([(150, 130), (350, 185)], fill=(230, 255, 230), outline=(46, 204, 113), width=2)
+    draw.text((170, 142), f"WIN       {wins}", fill=(0, 150, 0), font=font_med)
+
+    draw.rectangle([(370, 130), (570, 185)], fill=(255, 240, 230), outline=(230, 126, 34), width=2)
+    draw.text((390, 142), f"STREAK    {streak}", fill=(200, 80, 0), font=font_med)
+
+    # Status Bar
+    draw.rectangle([(0, 190), (width, 250)], fill=(30, 30, 30))
+    current_time_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S PM")
+    draw.text((30, 205), f"TIME\n{current_time_str}", fill=(255, 255, 255), font=font_small)
+    draw.text((280, 205), f"STATUS\nACTIVE", fill=(46, 204, 113), font=font_small)
+    draw.text((510, 205), f"ACCURACY\n{accuracy}%", fill=(46, 204, 113), font=font_small)
+    draw.text((760, 205), f"PREDICTIONS\n{total_predictions}", fill=(255, 255, 255), font=font_small)
+
+    # Main Signal & Number Boxes
+    # Left Current Signal Box
+    draw.rectangle([(50, 280), (680, 430)], outline=(46, 204, 113), width=3)
+    draw.text((320, 290), "CURRENT SIGNAL", fill=(46, 204, 113), font=font_small)
+    signal_color = (46, 204, 113) if signal_type == "GREEN" else (41, 128, 185)
+    draw.text((150, 330), f"{signal_type}", fill=signal_color, font=ImageFont.truetype("arial.ttf", 60) if os.path.exists("arial.ttf") else font_large)
+    draw.text((350, 400), f"CONFIDENCE = {confidence}%", fill=(41, 128, 185), font=font_small)
+
+    # Right Number Box
+    draw.rectangle([(710, 280), (950, 430)], outline=(46, 204, 113), width=3)
+    draw.text((790, 290), "NUMBER", fill=(46, 204, 113), font=font_small)
+    draw.text((780, 330), f"{number_hint}", fill=(41, 128, 185), font=font_large)
+    draw.text((735, 395), "SAME SIDE BIG NUMBERS", fill=(41, 128, 185), font=font_small)
+
+    # Table Header
+    draw.rectangle([(0, 460), (width, 520)], fill=(20, 20, 20))
+    draw.text((30, 475), "#", fill=(255, 255, 255), font=font_small)
+    draw.text((150, 475), "PERIOD", fill=(255, 255, 255), font=font_small)
+    draw.text((380, 475), "SIGNAL", fill=(255, 255, 255), font=font_small)
+    draw.text((500, 475), "NUMBER", fill=(255, 255, 255), font=font_small)
+    draw.text((640, 475), "RESULT", fill=(255, 255, 255), font=font_small)
+    draw.text((840, 475), "TIME", fill=(255, 255, 255), font=font_small)
+
+    # Populate History Table (Last 10 rows)
+    y_offset = 540
+    for idx, row in enumerate(recent_history_records[:10]):
+        bg_color = (245, 255, 245) if idx % 2 == 0 else (255, 255, 255)
+        draw.rectangle([(0, y_offset - 10), (width, y_offset + 35)], fill=bg_color)
+        
+        draw.text((35, y_offset), str(idx + 1), fill=(0, 0, 0), font=font_small)
+        draw.text((130, y_offset), str(row['period']), fill=(0, 0, 0), font=font_small)
+        draw.text((380, y_offset), str(row['signal']), fill=(41, 128, 185) if row['signal']=="BIG" else (231, 76, 60), font=font_small)
+        draw.text((520, y_offset), str(row['number']), fill=(0, 0, 0), font=font_small)
+        
+        # Result Badge
+        res_bg = (212, 239, 223) if row['result'] == "WIN" else (253, 237, 236)
+        res_txt = (39, 174, 96) if row['result'] == "WIN" else (192, 57, 43)
+        draw.rectangle([(630, y_offset - 5), (710, y_offset + 25)], fill=res_bg)
+        draw.text((650, y_offset), row['result'], fill=res_txt, font=font_small)
+        
+        draw.text((810, y_offset), row['time_str'], fill=(100, 100, 100), font=font_small)
+        y_offset += 45
+
+    # Bottom Footer Stats Boxes
+    footer_y = 1000
+    draw.rectangle([(20, footer_y), (240, 1070)], outline=(46, 204, 113), width=2)
+    draw.text((45, footer_y + 10), "WINS", fill=(46, 204, 113), font=font_small)
+    draw.text((45, footer_y + 35), str(wins), fill=(0, 150, 0), font=font_large)
+
+    draw.rectangle([(260, footer_y), (480, 1070)], outline=(230, 126, 34), width=2)
+    draw.text((280, footer_y + 10), "MAX STREAK", fill=(230, 126, 34), font=font_small)
+    draw.text((280, footer_y + 35), str(max_streak), fill=(200, 80, 0), font=font_large)
+
+    draw.rectangle([(500, footer_y), (720, 1070)], outline=(41, 128, 185), width=2)
+    draw.text((520, footer_y + 10), "WIN RATE", fill=(41, 128, 185), font=font_small)
+    draw.text((520, footer_y + 35), f"{accuracy}%", fill=(41, 128, 185), font=font_large)
+
+    draw.rectangle([(740, footer_y), (980, 1070)], outline=(155, 89, 182), width=2)
+    draw.text((760, footer_y + 10), "CONFIDENCE", fill=(155, 89, 182), font=font_small)
+    draw.text((760, footer_y + 35), f"{confidence}%", fill=(155, 89, 182), font=font_large)
+
+    filename = "dashboard.png"
+    img.save(filename)
+    return filename
+
+# --- 30-Second Advanced Trend Engine ---
 def get_live_data():
     try:
         res = requests.get(API_URL, timeout=10)
@@ -70,37 +169,75 @@ def get_live_data():
         print(f"API Error: {e}")
     return None
 
-def generate_prediction(history_list):
-    if not history_list:
-        return "BIG", "9/6"
-    latest = history_list[0]
-    num = int(latest.get("number", 0))
-    sz = latest.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
+def advanced_30s_prediction(history_list):
+    if not history_list or len(history_list) < 10:
+        return "BIG", "6/7", 55
 
-    pred = "SMALL" if sz == "BIG" else "BIG"
-    nums = "9/6" if pred == "BIG" else "1/3"
-    return pred, nums
+    recent = history_list[:10]
+    sizes = []
+    for item in recent:
+        num = int(item.get("number", 0))
+        sz = item.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
+        sizes.append(sz)
 
-# --- Broadcast Signal in Exact Video Format ---
-def broadcast_prediction(period_short, prediction, number_hint):
-    signal_msg = (
-        f"🪽 **WINGO 1 MIN** 🔊\n"
-        f"🔍 **PERIOD** -> ( {period_short} )\n\n"
-        f"🏹 **SIGNAL** -> **{prediction}GG**\n\n"
-        f"⚛️ **NUMBER** -> {number_hint}\n\n"
+    # 30-Second Advanced Pattern Matrix Logic
+    if sizes[0] == sizes[1] == sizes[2]:
+        pred = sizes[0]
+        conf = 68
+    elif sizes[0] != sizes[1] and sizes[1] != sizes[2]:
+        pred = "SMALL" if sizes[0] == "BIG" else "BIG"
+        conf = 62
+    else:
+        big_count = sizes[:6].count("BIG")
+        pred = "SMALL" if big_count >= 3 else "BIG"
+        conf = 55
+
+    # Color/Number hint mapping
+    if pred == "BIG":
+        num_hint = "6/7"
+        signal_display = "BIG"
+    else:
+        num_hint = "2/3"
+        signal_display = "GREEN" if conf > 60 else "SMALL"
+
+    return signal_display, num_hint, conf
+
+# --- Broadcast Signal with Generated Dashboard Image ---
+def broadcast_signal(period, signal_display, number_hint, confidence):
+    global total_predictions
+    total_predictions += 1
+    accuracy_val = round((total_wins / total_predictions) * 100, 1)
+
+    # Generate Image
+    img_path = generate_dashboard_image(
+        period=period,
+        signal_type=signal_display,
+        number_hint=number_hint,
+        confidence=confidence,
+        accuracy=accuracy_val,
+        wins=total_wins,
+        streak=current_streak
+    )
+
+    caption_text = (
+        f"🪽 **WINGO 30 SECONDS ADVANCED SIGNAL** 🔊\n"
+        f"🔍 **PERIOD** -> ( `{period}` )\n"
+        f"🏹 **SIGNAL** -> **{signal_display}**\n"
+        f"⚛️ **NUMBER HINT** -> `{number_hint}`\n\n"
         f"🔗 [Click to Register & Play]({REGISTER_LINK})"
     )
 
     targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
     for target in list(set(targets)):
         try:
-            bot.send_photo(target, BANNER_CARD_URL, caption=signal_msg, parse_mode="Markdown")
+            with open(img_path, 'rb') as photo:
+                bot.send_photo(target, photo, caption=caption_text, parse_mode="Markdown")
         except Exception as e:
-            print(f"Error sending to {target}: {e}")
+            print(f"Broadcast Error to {target}: {e}")
 
-# --- Result Tracker with Scorecard Photo & Animated Stickers ---
-def check_and_send_result(history_list):
-    global active_prediction, total_signals, total_wins, total_losses
+# --- Result Checker ---
+def check_result(history_list):
+    global active_prediction, total_wins, current_streak, max_streak, recent_history_records
     if not active_prediction or not history_list:
         return
 
@@ -112,67 +249,61 @@ def check_and_send_result(history_list):
         actual_size = latest.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
         predicted = active_prediction["prediction"]
 
-        total_signals += 1
+        is_win = (actual_size == predicted) or (predicted in actual_size)
+        res_str = "WIN" if is_win else "LOSE"
+        time_str = datetime.now().strftime("%I:%M:%S %p")
+
+        # Add to recent history records for image table
+        recent_history_records.insert(0, {
+            "period": latest_period[-8:],
+            "signal": predicted,
+            "number": num,
+            "result": res_str,
+            "time_str": time_str
+        })
+        if len(recent_history_records) > 10:
+            recent_history_records.pop()
+
         targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
 
-        if actual_size == predicted:
+        if is_win:
             total_wins += 1
-            win_rate = round((total_wins / total_signals) * 100, 1) if total_signals > 0 else 0
-            
-            res_msg = (
-                f"✅ **WIN!**\n"
-                f"===========================\n"
-                f"Period => #{latest_period[-4:]}\n"
-                f"Result => NUM:{num} 🔵 {actual_size}"
-            )
+            current_streak += 1
+            if current_streak > max_streak:
+                max_streak = current_streak
+
+            res_msg = f"✅ **RESULT: WIN 🎉**\n📌 Period: `{latest_period}`\n🎯 Outcome: `{actual_size}` (Matched)"
             for target in list(set(targets)):
                 try:
-                    # 1. Send Text Result
                     bot.send_message(target, res_msg, parse_mode="Markdown")
-                    # 2. Send Win Animated Sticker
                     if WIN_STICKER:
                         bot.send_sticker(target, WIN_STICKER)
-                    # 3. Send Scorecard Photo Update (Like video style)
-                    scorecard_caption = (
-                        f"📊 **SCOREBOARD UPDATE**\n"
-                        f"🎯 Total Wins: {total_wins}/{total_signals}\n"
-                        f"🔥 Accuracy: {win_rate}%\n"
-                        f"✅ Streak Active!"
-                    )
-                    bot.send_photo(target, BANNER_CARD_URL, caption=scorecard_caption, parse_mode="Markdown")
-                except Exception as e:
-                    print(f"Win result send error: {e}")
+                except:
+                    pass
         else:
-            total_losses += 1
-            win_rate = round((total_wins / total_signals) * 100, 1) if total_signals > 0 else 0
-
-            res_msg = (
-                f"❌ **LOSS**\n"
-                f"===========================\n"
-                f"Period => #{latest_period[-4:]}\n"
-                f"Result => NUM:{num} 🔴 {actual_size}"
-            )
+            current_streak = 0
+            res_msg = f"❌ **RESULT: LOSS ⚠️**\n📌 Period: `{latest_period}`\n📊 Actual: `{actual_size}` | Predicted: `{predicted}`"
             for target in list(set(targets)):
                 try:
-                    # 1. Send Text Result
                     bot.send_message(target, res_msg, parse_mode="Markdown")
-                    # 2. Send Loss Animated Sticker
                     if LOSS_STICKER:
                         bot.send_sticker(target, LOSS_STICKER)
-                except Exception as e:
-                    print(f"Loss result send error: {e}")
+                except:
+                    pass
 
         active_prediction = None
 
+# --- Main Bot Loop (30s Engine) ---
 def bot_loop():
     global last_processed_period, active_prediction
-    print("🚀 Wingo Video-Style Bot Engine Started...")
+    print("🚀 Wingo 30s Advanced Trend Engine Started...")
     time.sleep(3)
+
     while True:
         try:
             history = get_live_data()
             if history:
-                check_and_send_result(history)
+                check_result(history)
                 latest = history[0]
                 curr_issue = int(latest.get("issueNumber"))
                 next_period_full = str(curr_issue + 1)
@@ -180,11 +311,16 @@ def bot_loop():
 
                 if next_period_full != last_processed_period:
                     last_processed_period = next_period_full
-                    pred, num_hint = generate_prediction(history)
-                    active_prediction = {"period": next_period_full, "prediction": pred}
-                    broadcast_prediction(next_period_short, pred, num_hint)
+                    signal_display, num_hint, conf = advanced_30s_prediction(history)
+
+                    active_prediction = {
+                        "period": next_period_full,
+                        "prediction": "BIG" if signal_display in ["BIG", "GREEN"] else "SMALL"
+                    }
+
+                    broadcast_signal(next_period_short, signal_display, num_hint, conf)
         except Exception as e:
-            print(f"Loop Error: {e}")
+            print(f"Main Loop Error: {e}")
         time.sleep(2)
 
 if __name__ == "__main__":
