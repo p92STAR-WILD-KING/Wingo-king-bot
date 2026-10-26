@@ -11,9 +11,6 @@ BOT_TOKEN = "8884038113:AAEX8v7pFHqfS7n3M6ztXmu7iTgOWu2B8Ko"
 REGISTER_LINK = "https://www.92pkr4.com/#/register?invitationCode=446251637459"
 API_URL = "https://sky-predictor-1012593186417.asia-southeast1.run.app/api/wingo-history-30s-100"
 
-WIN_STICKER = "CAACAgIAAxkBAAEZ78pl3gAB1QAB..."   
-LOSS_STICKER = "CAACAgIAAxkBAAEZ8E9l3gAB2QAB..."  
-
 bot = telebot.TeleBot(BOT_TOKEN)
 
 active_prediction_users = set()
@@ -21,10 +18,10 @@ user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
-# --- Session & Target Settings (Aap yahan timing aur wins target adjust kar sakte hain) ---
 SESSION_TITLE = "3:00 PM Session"
-TARGET_WINS_LIMIT = 10  # Target wins limit per session
-current_session_wins = 0
+
+# Recent rounds list for live text ledger formatting
+session_history_log = []
 
 # --- Flask Server ---
 app = Flask(__name__)
@@ -32,7 +29,7 @@ app = Flask(__name__)
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WILD KING TEXT BOT IS LIVE", 200
+    return "WILD KING SESSION LEDGER BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -46,12 +43,11 @@ def send_welcome(message):
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n\n"
         f"✅ **Session Active:** {SESSION_TITLE}\n"
-        f"🚀 **Target Wins Set:** {current_session_wins} / {TARGET_WINS_LIMIT}\n"
-        f"🎯 **Clean Text Signal Engine Ready!**"
+        f"🚀 **Session Ledger Engine Running!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
-# --- Live API & Safe VIP Prediction Engine ---
+# --- Live API & Prediction Engine ---
 def get_live_data():
     try:
         res = requests.get(API_URL, timeout=10)
@@ -76,68 +72,69 @@ def safe_vip_prediction(history_list):
     else:
         return "BIG"
 
-def broadcast_signal(period, signal_display):
-    signal_msg = (
-        f"👑 **WILD KING BOT** 👑\n\n"
-        f"🎁 **30 Sec Wingo** 🎁\n\n"
+def build_session_message():
+    # Builds the exact list style message matching your screenshot
+    log_lines = "\n".join(session_history_log[-20:]) if session_history_log else "Waiting for first round..."
+    
+    msg = (
         f"Maintain 7 - 8 Level ✅\n\n"
+        f"Prediction By Qayoom\n\n"
         f"⏰ **{SESSION_TITLE}**\n"
-        f"------------------------------------\n\n"
-        f"📌 **Period:** `{period}`\n"
-        f"🏹 **Signal:** **{signal_display}**\n\n"
-        f"🔗 [Click to Register & Play]({REGISTER_LINK})"
+        f"------------------------------------\n"
+        f"{log_lines}\n"
+        f"------------------------------------\n"
+        f"{REGISTER_LINK}"
     )
+    return msg
 
+def send_or_update_ledger(chat_id=None):
+    # Sends or updates the message so it acts like a live updating scoreboard ledger
+    text_content = build_session_message()
     targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
+    
     for target in list(set(targets)):
         try:
-            bot.send_message(target, signal_msg, parse_mode="Markdown")
+            bot.send_message(target, text_content, parse_mode="Markdown")
         except Exception as e:
-            print(f"Broadcast Error: {e}")
+            print(f"Ledger Send Error: {e}")
 
-def check_result(history_list):
-    global active_prediction, current_session_wins
-    if not active_prediction or not history_list:
+def check_and_update_results(history_list):
+    global active_prediction, session_history_log
+    if not history_list:
         return
 
     latest = history_list[0]
     latest_period = str(latest.get("issueNumber"))
+    short_period = latest_period[-4:]
 
-    if latest_period[-4:] == active_prediction["period"][-4:] or latest_period == active_prediction["period"]:
+    # Check if we have an active prediction waiting for result
+    if active_prediction and (latest_period[-4:] == active_prediction["period"][-4:] or latest_period == active_prediction["period"]):
         num = int(latest.get("number", 0))
         actual_size = latest.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
         predicted_side = active_prediction["prediction"]
 
         is_win = (actual_size == predicted_side)
-        res_text = f"{latest_period[-4:]} {predicted_side} " + ("✅✅✅ WIN" if is_win else "❌ LOST")
-
-        targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
         
-        for target in list(set(targets)):
-            try:
-                bot.send_message(target, res_text)
-                if is_win and WIN_STICKER:
-                    bot.send_sticker(target, WIN_STICKER)
-                elif not is_win and LOSS_STICKER:
-                    bot.send_sticker(target, LOSS_STICKER)
-            except:
-                pass
-
+        # Exact formatting like screenshot: e.g. "573 SMALL ✅✅✅ WIN" or "572 BIG ❌ LOST"
         if is_win:
-            current_session_wins += 1
+            res_line = f"`{short_period}` **{predicted_side}** ✅✅✅ WIN"
+        else:
+            res_line = f"`{short_period}` **{predicted_side}** ❌ LOST"
 
+        session_history_log.append(res_line)
         active_prediction = None
 
 def bot_loop():
     global last_processed_period, active_prediction
-    print("👑 Wild King Text Bot Engine Started...")
+    print("👑 Wild King Ledger Bot Engine Started...")
     time.sleep(3)
 
     while True:
         try:
             history = get_live_data()
             if history:
-                check_result(history)
+                check_and_update_results(history)
+                
                 latest = history[0]
                 curr_issue = int(latest.get("issueNumber"))
                 next_period_full = str(curr_issue + 1)
@@ -151,8 +148,13 @@ def bot_loop():
                         "period": next_period_full,
                         "prediction": signal_display
                     }
+                    
+                    # Add new signal line to log
+                    session_history_log.append(f"`{next_period_short}` **{signal_display}** ⏳ (Pending)")
+                    if len(session_history_log) > 25:
+                        session_history_log.pop(0)
 
-                    broadcast_signal(next_period_short, signal_display)
+                    send_or_update_ledger()
         except Exception as e:
             print(f"Main Loop Error: {e}")
         time.sleep(2)
