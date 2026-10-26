@@ -13,14 +13,11 @@ API_URL = "https://sky-predictor-1012593186417.asia-southeast1.run.app/api/wingo
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-active_prediction_users = set()
-user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
 SESSION_TITLE = "3:00 PM Session"
 session_history_log = []
-last_sent_message_ids = {}
 
 # --- Flask Server ---
 app = Flask(__name__)
@@ -28,7 +25,7 @@ app = Flask(__name__)
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WILD KING SESSION BOT IS LIVE", 200
+    return "WILD KING VIP BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -37,16 +34,16 @@ def send_welcome(message):
     username = f"@{message.from_user.username}" if message.from_user.username else "N/A"
 
     welcome_text = (
-        f"👑 **WILD KING BOT** 👑\n\n"
+        f"👑 **WILD KING VIP BOT** 👑\n\n"
         f"Welcome, {first_name} 🔥!\n\n"
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n\n"
         f"✅ **Session Active:** {SESSION_TITLE}\n"
-        f"🚀 **Bot is fully active and ready!**"
+        f"🚀 **VIP Logic & Clean Engine Running Successfully!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
-# --- Live API & Prediction Engine ---
+# --- Live API & VIP Smart Engine ---
 def get_live_data():
     try:
         res = requests.get(API_URL, timeout=10)
@@ -58,21 +55,25 @@ def get_live_data():
         print(f"API Error: {e}")
     return None
 
-def safe_vip_prediction(history_list):
+def vip_smart_prediction(history_list):
     if not history_list or len(history_list) < 5:
+        return "BIG"
+    
+    # Advanced VIP Trend Filter to avoid high-stage streaks
+    recent_results = [item.get("size", "").upper() for item in history_list[:3]]
+    if recent_results.count("BIG") >= 2:
+        return "SMALL"
+    elif recent_results.count("SMALL") >= 2:
         return "BIG"
     
     latest = history_list[0]
     last_num = int(latest.get("number", 0))
     last_size = latest.get("size", "").upper() or ("BIG" if last_num >= 5 else "SMALL")
 
-    if last_size == "BIG":
-        return "SMALL"
-    else:
-        return "BIG"
+    return "SMALL" if last_size == "BIG" else "BIG"
 
 def build_session_message():
-    log_lines = "\n".join(session_history_log[-15:]) if session_history_log else "Waiting for rounds..."
+    log_lines = "\n".join(session_history_log[-12:]) if session_history_log else "Waiting for rounds..."
     
     msg = (
         f"Maintain 7 - 8 Level ✅\n\n"
@@ -87,12 +88,11 @@ def build_session_message():
 
 def broadcast_or_update_ledger():
     text_content = build_session_message()
-    targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
+    targets = ["@pak92_qayoom"]
     
     for target in list(set(targets)):
         try:
-            sent_msg = bot.send_message(target, text_content, parse_mode="Markdown")
-            last_sent_message_ids[target] = sent_msg.message_id
+            bot.send_message(target, text_content, parse_mode="Markdown")
         except Exception as e:
             print(f"Broadcast Error to {target}: {e}")
 
@@ -112,10 +112,7 @@ def check_and_update_results(history_list):
 
         is_win = (actual_size == predicted_side)
         
-        # Remove pending and replace with exact result line
-        if session_history_log and f"`{short_period}`" in session_history_log[-1]:
-            session_history_log.pop()
-
+        # Clean result formatting without any pending text
         if is_win:
             res_line = f"`{short_period}` **{predicted_side}** ✅✅✅ WIN"
         else:
@@ -127,7 +124,7 @@ def check_and_update_results(history_list):
 
 def bot_loop():
     global last_processed_period, active_prediction, session_history_log
-    print("👑 Wild King Ledger Bot Engine Started...")
+    print("👑 Wild King VIP Bot Engine Started...")
     time.sleep(3)
 
     while True:
@@ -143,15 +140,16 @@ def bot_loop():
 
                 if next_period_full != last_processed_period:
                     last_processed_period = next_period_full
-                    signal_display = safe_vip_prediction(history)
+                    signal_display = vip_smart_prediction(history)
 
                     active_prediction = {
                         "period": next_period_full,
                         "prediction": signal_display
                     }
                     
-                    session_history_log.append(f"`{next_period_short}` **{signal_display}** ⏳ (Pending)")
-                    if len(session_history_log) > 20:
+                    # Direct signal entry without pending tags
+                    session_history_log.append(f"`{next_period_short}` **{signal_display}**")
+                    if len(session_history_log) > 15:
                         session_history_log.pop(0)
 
                     broadcast_or_update_ledger()
