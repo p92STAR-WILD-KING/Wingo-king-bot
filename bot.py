@@ -21,8 +21,9 @@ user_channels = {}
 last_processed_period = ""
 active_prediction = None
 
+# --- Session & Target Settings (Aap yahan timing aur wins target adjust kar sakte hain) ---
 SESSION_TITLE = "3:00 PM Session"
-TARGET_WINS_LIMIT = 10
+TARGET_WINS_LIMIT = 10  # Target wins limit per session
 current_session_wins = 0
 
 # --- Flask Server ---
@@ -45,7 +46,8 @@ def send_welcome(message):
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n\n"
         f"✅ **Session Active:** {SESSION_TITLE}\n"
-        f"🚀 **Clean 30s Text Signal Engine Ready!**"
+        f"🚀 **Target Wins Set:** {current_session_wins} / {TARGET_WINS_LIMIT}\n"
+        f"🎯 **Clean Text Signal Engine Ready!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
@@ -76,6 +78,7 @@ def safe_vip_prediction(history_list):
 
 def broadcast_signal(period, signal_display):
     signal_msg = (
+        f"👑 **WILD KING BOT** 👑\n\n"
         f"🎁 **30 Sec Wingo** 🎁\n\n"
         f"Maintain 7 - 8 Level ✅\n\n"
         f"⏰ **{SESSION_TITLE}**\n"
@@ -166,4 +169,4 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-        
+    
