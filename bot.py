@@ -25,7 +25,7 @@ app = Flask(__name__)
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WILD KING VIP BOT IS LIVE", 200
+    return "WILD KING CLEAN BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -39,7 +39,7 @@ def send_welcome(message):
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n\n"
         f"✅ **Session Active:** {SESSION_TITLE}\n"
-        f"🚀 **VIP Logic & Clean Engine Running Successfully!**"
+        f"🚀 **Clean Signal Ledger Running!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
@@ -59,7 +59,6 @@ def vip_smart_prediction(history_list):
     if not history_list or len(history_list) < 5:
         return "BIG"
     
-    # Advanced VIP Trend Filter to avoid high-stage streaks
     recent_results = [item.get("size", "").upper() for item in history_list[:3]]
     if recent_results.count("BIG") >= 2:
         return "SMALL"
@@ -112,7 +111,10 @@ def check_and_update_results(history_list):
 
         is_win = (actual_size == predicted_side)
         
-        # Clean result formatting without any pending text
+        # Replace the pending/open signal line with final win/loss result line
+        if session_history_log:
+            session_history_log.pop()
+
         if is_win:
             res_line = f"`{short_period}` **{predicted_side}** ✅✅✅ WIN"
         else:
@@ -124,7 +126,7 @@ def check_and_update_results(history_list):
 
 def bot_loop():
     global last_processed_period, active_prediction, session_history_log
-    print("👑 Wild King VIP Bot Engine Started...")
+    print("👑 Wild King Clean Bot Engine Started...")
     time.sleep(3)
 
     while True:
@@ -147,7 +149,7 @@ def bot_loop():
                         "prediction": signal_display
                     }
                     
-                    # Direct signal entry without pending tags
+                    # Add new incoming signal
                     session_history_log.append(f"`{next_period_short}` **{signal_display}**")
                     if len(session_history_log) > 15:
                         session_history_log.pop(0)
