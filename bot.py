@@ -19,9 +19,8 @@ last_processed_period = ""
 active_prediction = None
 
 SESSION_TITLE = "3:00 PM Session"
-
-# Recent rounds list for live text ledger formatting
 session_history_log = []
+last_sent_message_ids = {}
 
 # --- Flask Server ---
 app = Flask(__name__)
@@ -29,7 +28,7 @@ app = Flask(__name__)
 @app.route("/")
 @app.route("/health")
 def home():
-    return "WILD KING SESSION LEDGER BOT IS LIVE", 200
+    return "WILD KING SESSION BOT IS LIVE", 200
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -43,7 +42,7 @@ def send_welcome(message):
         f"👤 **USER ID:** `{user_id}`\n"
         f"👤 **USERNAME:** {username}\n\n"
         f"✅ **Session Active:** {SESSION_TITLE}\n"
-        f"🚀 **Session Ledger Engine Running!**"
+        f"🚀 **Bot is fully active and ready!**"
     )
     bot.send_message(user_id, welcome_text, parse_mode="Markdown")
 
@@ -73,12 +72,11 @@ def safe_vip_prediction(history_list):
         return "BIG"
 
 def build_session_message():
-    # Builds the exact list style message matching your screenshot
-    log_lines = "\n".join(session_history_log[-20:]) if session_history_log else "Waiting for first round..."
+    log_lines = "\n".join(session_history_log[-15:]) if session_history_log else "Waiting for rounds..."
     
     msg = (
         f"Maintain 7 - 8 Level ✅\n\n"
-        f"Prediction By Qayoom\n\n"
+        f"👑 **WILD KING** 👑\n\n"
         f"⏰ **{SESSION_TITLE}**\n"
         f"------------------------------------\n"
         f"{log_lines}\n"
@@ -87,35 +85,37 @@ def build_session_message():
     )
     return msg
 
-def send_or_update_ledger(chat_id=None):
-    # Sends or updates the message so it acts like a live updating scoreboard ledger
+def broadcast_or_update_ledger():
     text_content = build_session_message()
     targets = ["@pak92_qayoom"] + list(active_prediction_users) + list(set(user_channels.values()))
     
     for target in list(set(targets)):
         try:
-            bot.send_message(target, text_content, parse_mode="Markdown")
+            sent_msg = bot.send_message(target, text_content, parse_mode="Markdown")
+            last_sent_message_ids[target] = sent_msg.message_id
         except Exception as e:
-            print(f"Ledger Send Error: {e}")
+            print(f"Broadcast Error to {target}: {e}")
 
 def check_and_update_results(history_list):
     global active_prediction, session_history_log
-    if not history_list:
+    if not history_list or not active_prediction:
         return
 
     latest = history_list[0]
     latest_period = str(latest.get("issueNumber"))
     short_period = latest_period[-4:]
 
-    # Check if we have an active prediction waiting for result
-    if active_prediction and (latest_period[-4:] == active_prediction["period"][-4:] or latest_period == active_prediction["period"]):
+    if latest_period[-4:] == active_prediction["period"][-4:] or latest_period == active_prediction["period"]:
         num = int(latest.get("number", 0))
         actual_size = latest.get("size", "").upper() or ("BIG" if num >= 5 else "SMALL")
         predicted_side = active_prediction["prediction"]
 
         is_win = (actual_size == predicted_side)
         
-        # Exact formatting like screenshot: e.g. "573 SMALL ✅✅✅ WIN" or "572 BIG ❌ LOST"
+        # Remove pending and replace with exact result line
+        if session_history_log and f"`{short_period}`" in session_history_log[-1]:
+            session_history_log.pop()
+
         if is_win:
             res_line = f"`{short_period}` **{predicted_side}** ✅✅✅ WIN"
         else:
@@ -123,9 +123,10 @@ def check_and_update_results(history_list):
 
         session_history_log.append(res_line)
         active_prediction = None
+        broadcast_or_update_ledger()
 
 def bot_loop():
-    global last_processed_period, active_prediction
+    global last_processed_period, active_prediction, session_history_log
     print("👑 Wild King Ledger Bot Engine Started...")
     time.sleep(3)
 
@@ -149,12 +150,11 @@ def bot_loop():
                         "prediction": signal_display
                     }
                     
-                    # Add new signal line to log
                     session_history_log.append(f"`{next_period_short}` **{signal_display}** ⏳ (Pending)")
-                    if len(session_history_log) > 25:
+                    if len(session_history_log) > 20:
                         session_history_log.pop(0)
 
-                    send_or_update_ledger()
+                    broadcast_or_update_ledger()
         except Exception as e:
             print(f"Main Loop Error: {e}")
         time.sleep(2)
